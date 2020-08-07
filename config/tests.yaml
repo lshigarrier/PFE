@@ -1,0 +1,63 @@
+# paths
+json_directory: ../data/
+json_file: TEST_10000.json
+json_filter: FRANCE_FIR.FILTER
+tsagi_directory: ../data/
+tsagi_file: 20200718_C_NEW.TSAGI_COMP
+
+# input_type:
+# 1 -> congestion map
+# 2 -> lon, lat, alt, speed, head, vz
+# 3 -> lon, lat, alt, speed, head, vz, congestion, mat0, ..., mat8
+input_type: 2
+# metric_type:
+# 0 -> metric value in index 11, for 'robust convergence' and 'linear dynamical system' (except NEW dataset)
+# 1 -> metric value in index 10, only for NEW dataset (extended neighborhood) and 'interaction'
+metric_type: 1
+# input_struct:
+# 0 -> by position (with zero padding)
+# 1 -> by a/c (with zero padding)
+# 2 -> by position (without zero padding)
+input_struct: 0
+nb_steps: 100
+apply_smooth: False
+log_thr: 1.0e-2
+# criterion:
+# 0 -> density (nb of a/c per cell)
+# 1 -> max congestion per cell
+# 2 -> mean congestion per cell
+criterion: 1
+rescale: True
+
+# yolo parameters
+apply_yolo: False
+cong_thr: 0.2
+eps: 0.04
+min_samples: 3
+
+# binary variables parameters
+apply_binary: False
+percentile: 95
+
+# computational parameters
+comp_y: True
+comp_x: False
+
+# plotting parameters
+window:
+  _lon: -9
+  _lat: 38
+  _alt: 29000
+  lon_: 7
+  lat_: 51
+  alt_: 31000
+bounds:
+  - 1400
+  - 1600
+coords:
+  - 75
+  - 75
+  - 1400
+  - 1600
+  - 0
+  - 1

@@ -1,0 +1,45 @@
+# training or prediction
+train: True
+# model_type:
+# 0 -> seq2vec
+# 1 -> seq2seq encoder-decoder
+model_type: 1
+
+# model
+name: yolo_1Conv_2LSTM512_2LSTM512_2Dense_500epochs
+# layers_list[0] -> Conv1D layers ((filters tuple), (kernels tuple), (activations tuple))
+# layers_list[1] -> RNN encoder ("LSTM" or "GRU", (hidden state dimensions tuple))
+# layers_list[2] -> RNN decoder ("LSTM" or "GRU", (hidden state dimensions tuple))
+# layers_list[3] -> Dense layers ((output dimensions tuple), (activations tuple))
+# layers_list[4] -> Conv2DTranspose layers ((filters tuple), (kernels tuple), (padding tuple), (activations tuple))
+layers_list:
+  - [[256], [3], ['elu']]
+  - [["LSTM"], [512, 512]]
+  - [["LSTM"], [512, 512]]
+  - [[1024, 2400], ['elu', null]]
+  - [[]]
+directory: ../models/
+input_dim: 160
+output_dim: 160
+batch_size: 128
+epochs: 500
+learning_rate: 1.0e-3
+beta_1: 0.9
+beta_2: 0.999
+# mean_squared_error
+# binary_crossentropy
+# weighted_mse
+# yolo
+loss: yolo
+l2_lambd: 0
+nb_splits: 0
+train_val_split: True
+index_file: yolo
+
+# inference
+use_val: True
+# plot_type:
+# 0 -> plot_predict_ytensor
+# 1 -> plot_error_dist
+plot_type: 0
+pred_dim: 160
