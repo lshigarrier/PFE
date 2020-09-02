@@ -1,5 +1,6 @@
 from dataset_tsagi import *
 from dataset_json import *
+from dataset_traj import *
 import sys
 import yaml
 
@@ -74,7 +75,7 @@ def main():
     test = sys.argv[2]
     if test == "json":
         test_json(param["json_directory"], param["json_filter"], param["json_file"], param["input_type"], param["metric_type"])
-    else:
+    elif test.find("tp") == -1:
         ds = test_tsagi(param["tsagi_directory"], param["tsagi_file"], param["input_type"], param["metric_type"])
         if test == "dbscan":
             fig, ax, slider = test_dbscan(ds, param["input_struct"], param["nb_steps"], param["log_thr"], param["cong_thr"], param["eps"], param["min_samples"])
@@ -93,6 +94,25 @@ def main():
             fig, ax = test_plot_metric(ds, param["nb_steps"], param["apply_smooth"], param["log_thr"], param["coords"])
         elif test == "ac":
             fig, ax = test_nb_ac(ds)
+    else:
+        if test == "tp_weather":
+            ds = DatasetTraj(trajs_directory=param["trajs_directory"], plns_directory=param["plns_directory"], weather_directory=param["weather_directory"], load_data=False)
+            ds.grib2npy(param["grib_directory"])
+        elif test == "tp_loss":
+            plot_loss("../models/", 5)
+        else:
+            ds = DatasetTraj(trajs_directory=param["trajs_directory"], plns_directory=param["plns_directory"], weather_directory=param["weather_directory"])
+            if test == "tp_dataset":
+                print(ds.x_tensor.shape)
+                print(ds.y_tensor.shape, flush=True)
+            elif test == "tp_plns":
+                ds.plot_plns()
+            elif test == "tp_wind":
+                ds.plot_wind("202008271200", 0, 24)
+            elif test == "tp_traj":
+                ds.plot_traj()
+            elif test == "tp_profile":
+                ds.plot_profile()
     plt.show()
         
 if __name__ == '__main__':

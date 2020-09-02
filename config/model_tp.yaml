@@ -1,0 +1,33 @@
+# training or prediction
+train: False
+# model_type:
+# 2 -> TP
+model_type: 2
+
+# model
+name: TP_2LSTM512_2LSTM512_3Dense256-128-5_500epochs
+# layers_list[0] -> RNN encoder ((hidden state dimensions tuple))
+# layers_list[1] -> RNN decoder ((hidden state dimensions tuple))
+# layers_list[2] -> Dense layers ((output dimensions tuple), (activations tuple))
+layers_list:
+  - [512, 512]
+  - [512, 512]
+  - [[256, 128, 5], ['elu', 'elu', 'linear']]
+directory: ../models/
+batch_size: 64
+epochs: 500
+learning_rate: 1.0e-3
+beta_1: 0.9
+beta_2: 0.999
+# mean_squared_error
+# binary_crossentropy
+# weighted_mse
+# yolo
+loss: mean_squared_error
+l2_lambd: 0
+nb_splits: 0
+train_val_split: True
+index_file: TP
+
+# inference
+use_val: False

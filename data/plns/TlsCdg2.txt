@@ -1,0 +1,22 @@
+Flight Plan ENAC Simulator
+Call Sign
+TlsCdg2
+Aircraft Type
+A320
+Cruise Speed
+300.0
+Cruise Level
+8000.0
+Initial Load
+50000.0
+Initial Fuel
+2500.0
+Procedure
+- -- -
+Start Time
+0
+Route
+ICAO LFBO 43.62903 1.36397 0.00000
+FIX OKIPA 48.61131 3.56350 0.00000
+FIX PG522 48.78450 3.41272 0.00000
+ICAO LFPG 49.00974 2.56262 0.00000

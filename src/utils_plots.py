@@ -8,6 +8,76 @@ import pickle
 import pandas
 from scipy import stats
 from sklearn.metrics import precision_recall_curve
+from mpl_toolkits.basemap import Basemap
+
+def plot_predict_profile(pred_tensor, true_tensor, t_init=0):
+    """
+    Plot the vertical profiles of the predicted and true trajectories
+    """
+    nb_times = pred_tensor.shape[0]
+
+    fig, ax = plt.subplots()
+
+    sp0 = ax.scatter(np.arange(0, 10*len(pred_tensor[t_init, :, 2]), 10),pred_tensor[t_init, :, 2], c='b',marker='+',s=1.0)
+    sp1 = ax.scatter(np.arange(0, 10*len(true_tensor[t_init, :, 2]), 10),true_tensor[t_init, :, 2], c='r',marker='+',s=1.0)
+
+    axe_slider = plt.axes([0.1, 0.01, 0.8, 0.05])
+    slider = Slider(axe_slider, 'Example', 0, nb_times-1, valinit=t_init, valstep=1)
+
+    def update_tp(val):
+        time = int(slider.val)
+        sp0.set_offsets(np.c_[np.arange(0, 10*len(pred_tensor[time, :, 2]), 10),pred_tensor[time, :, 2]])
+        sp1.set_offsets(np.c_[np.arange(0, 10*len(true_tensor[time, :, 2]), 10),true_tensor[time, :, 2]])
+        plt.draw()
+
+    slider.on_changed(update_tp)
+
+    return fig, ax, slider
+
+def plot_predict_tp(pred_tensor, true_tensor, t_init=0):
+    """
+    Plot the predicted trajectories and the true trajectories
+    """
+    nb_times = pred_tensor.shape[0]
+    
+    fig, ax = plt.subplots()
+
+    m = Basemap(projection='cyl', llcrnrlat=42, urcrnrlat=52, llcrnrlon=-2, urcrnrlon=4, resolution='c', area_thresh=1000.)
+    #m.bluemarble()
+    m.drawcoastlines(linewidth=0.5)
+    m.drawcountries(linewidth=0.5)
+    #m.drawstates(linewidth=0.5)
+
+    #Draw parallels and meridians
+
+    m.drawparallels(np.arange(35.,55.,5.))
+    m.drawmeridians(np.arange(-5.,10.,5.))
+    m.drawmapboundary()
+
+    #Convert latitude and longitude to coordinates X and Y
+
+    x0, y0 = m(pred_tensor[t_init, :, 1]*180/np.pi, pred_tensor[t_init, :, 0]*180/np.pi)
+    x1, y1 = m(true_tensor[t_init, :, 1]*180/np.pi, true_tensor[t_init, :, 0]*180/np.pi)
+
+    #Plot the points on the map
+
+    sp0 = ax.scatter(x0,y0,c='b',marker='+',s=0.8)
+    sp1 = ax.scatter(x1,y1,c='r',marker='+',s=0.8)
+    
+    axe_slider = plt.axes([0.1, 0.01, 0.8, 0.05])
+    slider = Slider(axe_slider, 'Example', 0, nb_times-1, valinit=t_init, valstep=1)
+
+    def update_tp(val):
+        time = int(slider.val)
+        x0, y0 = m(pred_tensor[time, :, 1]*180/np.pi, pred_tensor[time, :, 0]*180/np.pi)
+        x1, y1 = m(true_tensor[time, :, 1]*180/np.pi, true_tensor[time, :, 0]*180/np.pi)
+        sp0.set_offsets(np.c_[x0,y0])
+        sp1.set_offsets(np.c_[x1,y1])
+        plt.draw()
+
+    slider.on_changed(update_tp)
+    
+    return fig, ax, slider
 
 def plot_predict_ytensor(pred_tensor, true_tensor, t_init=0):
     """
@@ -36,8 +106,8 @@ def plot_predict_ytensor(pred_tensor, true_tensor, t_init=0):
     ax[0].set_title("Predicted")
     ax[1].set_title("True")
 
-    axeSlider = plt.axes([0.1, 0.01, 0.8, 0.05])
-    slider = Slider(axeSlider, 'Example', 0, nb_times-1, valinit=t_init, valstep=1)
+    axe_slider = plt.axes([0.1, 0.01, 0.8, 0.05])
+    slider = Slider(axe_slider, 'Example', 0, nb_times-1, valinit=t_init, valstep=1)
 
     def update_eval(val):
         time = int(slider.val)
@@ -112,7 +182,7 @@ def plot_sensitivity_analysis(directory=""):
     ax = df.plot.bar(x='hparams', y='error', rot=45, figsize=(12,6))
     return ax
     
-def plot_loss(directory):
+def plot_loss(directory, start):
     """
     NOT MAINTAINED
     Plot the model loss curves from directory
@@ -121,12 +191,12 @@ def plot_loss(directory):
     for path in glob.glob(directory+'val_loss_*'):
         with open(path, 'rb') as f:
             val_loss = pickle.load(f)
-            plt.plot(val_loss, color='orange')
+            plt.plot(val_loss[start:], color='orange')
     for path in glob.glob(directory+'train_loss_*'):
-        with open(train, 'rb') as f:
+        with open(path, 'rb') as f:
             train_loss = pickle.load(f)
-            plt.plot(train_loss, color='blue')    
+            plt.plot(train_loss[start:], color='blue')    
     plt.title('Model loss')
     plt.ylabel('Loss')
     plt.xlabel('Epoch')
-    plt.legend(['Train', 'Val'], loc='upper left')
+    plt.legend(['Val', 'Train'], loc='upper left')

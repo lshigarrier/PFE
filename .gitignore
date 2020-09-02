@@ -4,3 +4,4 @@ TEST_10000.json
 **/__pycache__/
 **/.ipynb_checkpoints/
 *.h5
+*.grib2

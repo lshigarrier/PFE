@@ -7,6 +7,30 @@ from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 from sklearn.model_selection import TimeSeriesSplit, KFold
 
+def batch_generator_tp(model, is_training):
+    """
+    x_encoder_batch is a batch of sequences of length model.ds.x_tensor.shape[1]
+    x_decoder_batch is a batch of sequences of length model.ds.y_tensor.shape[1]
+        (the first element of the sequences is a zero vector)
+    y_batch is a batch of sequences of length model.ds.y_tensor.shape[1] (the wind components are not part of y_batch)
+    """
+    x = model.ds.x_tensor
+    y = model.ds.y_tensor
+    index_map = model.train_index if is_training else model.val_index
+    m = len(index_map)
+    bs = model.batch_size
+    n_batches_per_epoch = m//bs
+    while True:
+        index = np.arange(m)
+        np.random.shuffle(index)
+        for i in range(n_batches_per_epoch):
+            current_bs = min(m-i*bs, bs)
+            x_encoder_batch = np.array([x[model.ds.index_tensor[index_map[index[j]]]] for j in range(i*bs,i*bs+current_bs)])
+            x_decoder_batch = np.array([y[index_map[index[j]], :-1, :] for j in range(i*bs,i*bs+current_bs)])
+            x_decoder_batch = np.concatenate((np.zeros((x_decoder_batch.shape[0], 1, x_decoder_batch.shape[2])), x_decoder_batch), axis=1)
+            y_batch = np.array([y[index_map[index[j]], :, :5] for j in range(i*bs,i*bs+current_bs)])
+            yield [x_encoder_batch, x_decoder_batch], y_batch
+
 def batch_generator_seq2vec(model, is_training):
     """
     x_batch is a batch of sequences of length model.input_dim
