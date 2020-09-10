@@ -16,18 +16,21 @@ layers_list:
 directory: ../models/
 batch_size: 64
 epochs: 500
-learning_rate: 1.0e-3
+learning_rate: 1.0e-4
 beta_1: 0.9
 beta_2: 0.999
 # mean_squared_error
 # binary_crossentropy
 # weighted_mse
 # yolo
-loss: mean_squared_error
+# tp
+loss: ml
 l2_lambd: 0
 nb_splits: 0
 train_val_split: True
 index_file: TP
+k_mixture: 0
 
 # inference
-use_val: False
+use_val: True
+pred_dim: 10

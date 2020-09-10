@@ -77,14 +77,15 @@ def main():
                             l2_lambd = hparam["l2_lambd"],
                             nb_splits = hparam["nb_splits"],
                             train_val_split = hparam["train_val_split"],
-                            index_file = hparam["index_file"])
+                            index_file = hparam["index_file"],
+                            k_mixture = hparam["k_mixture"])
     if hparam["train"]:
         model.training()
     else:
         if hparam["model_type"] == 0 or hparam["model_type"] == 1:
             model.prediction(hparam["use_val"], hparam["plot_type"], hparam["pred_dim"])
         if hparam["model_type"] == 2:
-            model.prediction(hparam["use_val"])
+            model.prediction(hparam["use_val"], hparam["pred_dim"])
         plt.show()
 
 if __name__ == '__main__':

@@ -46,7 +46,12 @@ class DatasetTraj(Dataset):
                 while line != "":
                     if time == 0:
                         state = [float(point[2]), float(point[3]), float(point[4]), float(point[6]), float(point[8])]
-                        state = self.match_weather(f, state)
+                        hdg = state[3]
+                        state[3] = np.cos(hdg)*state[4]
+                        state[4] = np.sin(hdg)*state[4]
+                        uwind, vwind = self.match_weather(f, state)
+                        state.append(uwind)
+                        state.append(vwind)
                         trajectory.append(state)
                         time += 10
                     elif time - 5 <= float(point[1]) <= time + 5:
@@ -62,7 +67,12 @@ class DatasetTraj(Dataset):
                                      self.interpolate(time, point[1], previous[2], point[4]),
                                      self.interpolate(time, point[1], previous[3], point[6]),
                                      self.interpolate(time, point[1], previous[4], point[8])]
-                            state = self.match_weather(f, state)
+                            hdg = state[3]
+                            state[3] = np.cos(hdg)*state[4]
+                            state[4] = np.sin(hdg)*state[4]
+                            uwind, vwind = self.match_weather(f, state)
+                            state.append(uwind)
+                            state.append(vwind)
                             trajectory.append(state)
                             time += 10
                     else:
@@ -135,13 +145,13 @@ class DatasetTraj(Dataset):
         time = int(f[28])//3
         dlat = np.abs(self.weather_dict["lats"] - state[0])
         dlon = np.abs(self.weather_dict["lons"] - state[1])
-        dlvl = np.abs(self.weather_dict["lvls"] - self.pressure(state[3]))
+        dlvl = np.abs(self.weather_dict["lvls"] - self.pressure(state[2]))
         ilat = np.argmin(dlat)
         ilon = np.argmin(dlon)
         ilvl = np.argmin(dlvl)
         uwind = self.weather_dict[key][time, ilat, ilon, ilvl, 0]
         vwind = self.weather_dict[key][time, ilat, ilon, ilvl, 1]
-        return state + [uwind, vwind]
+        return uwind, vwind
     
     def interpolate(self, x0, x1, y0, y1):
         """
@@ -184,7 +194,7 @@ class DatasetTraj(Dataset):
     def grib2npy(self, directory="../data/weather/grib/"):
         """
         Parse the grib files from the directory into npy files
-        For each grib file, wind data are saved over France for 28 isobaric levels and 3 forecast times
+        For each grib file, wind data are saved over France for 28 isobaric levels and 9 forecast times
         Message index:
             U component: 505-588
             V component: 757-840
@@ -198,8 +208,8 @@ class DatasetTraj(Dataset):
             if f.lower().endswith('.grib2'):
                 grbs = pygrib.open(directory+f)
                 print("Process file:", f, flush=True)
-                tensor = np.zeros((3, 23, 33, 28, 2))
-                for time in range(3):
+                tensor = np.zeros((9, 23, 33, 28, 2))
+                for time in range(9):
                     tensor[time, ..., 0] = self.parse_grib(grbs, 504+28*time, grib_info)
                     grib_info = False
                     tensor[time, ..., 1] = self.parse_grib(grbs, 756+28*time, grib_info)

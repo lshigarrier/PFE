@@ -1,6 +1,7 @@
 import numpy as np
 import keras.backend as K
-from keras.layers import Input, Conv1D, LSTM, GRU, TimeDistributed, Dense, Reshape, Conv2DTranspose, BatchNormalization
+import tensorflow as tf
+from keras.layers import Input, Conv1D, LSTM, GRU, TimeDistributed, Dense, Reshape, Concatenate, Conv2DTranspose, BatchNormalization
 from keras.regularizers import l2 
 from keras.models import Model
 from keras.optimizers import Adam
@@ -108,7 +109,85 @@ def custom_loss_wmse(y_true, y_pred):
     loss=K.sum(K.square(y_pred - y_true)*weights)
     return loss
 
-def compute_metric(y_true, y_pred):
+def custom_loss_tp(y_true, y_pred):
+    """
+    Mean Squared Error with coefficients for each variable to increase the errors
+    """
+    coeff = [1e1, 1e0, 1e1, 1e0, 1e1]
+    dx2 = K.square(y_true[...,0] - y_pred[...,0])*coeff[0]
+    dy2 = K.square(y_true[...,1] - y_pred[...,1])*coeff[1]
+    dz2 = K.square(y_true[...,2] - y_pred[...,2])*coeff[2]
+    dh2 = K.square(y_true[...,3] - y_pred[...,3])*coeff[3]
+    dv2 = K.square(y_true[...,4] - y_pred[...,4])*coeff[4]
+    loss=K.mean(dx2 + dy2 + dz2 + dh2 + dv2)
+    return loss
+
+def build_custom_loss_ml(model):
+    """
+    Build the negative log likelihood loss function
+    """
+    c = 5
+    k = model.k_mixture
+    def custom_loss_ml(y_true, y_pred):
+        """
+        Compute the negative log likelihood of gaussian mixture
+        """
+        splits = [k, k*c, k*c]
+
+        phi, mu, sigma = tf.split(y_pred, num_or_size_splits=splits, axis=2)
+        sigma_sq = sigma*sigma
+
+        y_true = K.expand_dims(y_true, axis=3)
+        mu = K.reshape(mu, [K.shape(y_true)[0], K.shape(y_true)[1], c, k])
+        sigma_sq = K.reshape(sigma_sq, [K.shape(y_true)[0], K.shape(y_true)[1], c, k])
+        dist = K.sum(K.square(y_true - mu)/sigma_sq, axis=2)
+
+        exponent = K.log(phi) - (c/2.0)*np.log(2*np.pi) - (1/2.0)*K.sum(K.log(sigma_sq), axis=2) - (1/2.0)*dist
+
+        return -K.sum(K.logsumexp(exponent, axis=2), axis=1)
+    return custom_loss_ml
+
+def AKF(model, X_, Cov_, X, Cov):
+    """
+    Adaptive Kalman Filter
+    """
+    dt = 10
+    A = np.array([[1, 0, 0, dt, 0],
+                  [0, 1, 0, 0, dt],
+                  [0, 0, 1, 0, 0],
+                  [0, 0, 0, 1, 0],
+                  [0, 0, 0, 0, 1]])
+    Q = np.diag([1e-3, 1e-3, 1, 1e-6, 1e-6])
+    
+    for k in range(5):
+        X[k] = X[k]*(model.ds.maxs[k] - model.ds.mins[k]) + model.ds.mins[k]
+        X_[k] = X_[k]*(model.ds.maxs[k] - model.ds.mins[k]) + model.ds.mins[k]
+        Cov[k, k] = Cov[k, k]*(model.ds.maxs[k] - model.ds.mins[k])**2
+        Cov_[k, k] = Cov_[k, k]*(model.ds.maxs[k] - model.ds.mins[k])**2
+    
+    '''print("X", X)
+    print("X_", X_)
+    print("Cov", Cov)
+    print("Cov_", Cov_, flush=True)'''
+    # Predict
+    X_pred = np.dot(A, X_)
+    Cov_pred = np.dot(A, np.dot(Cov_, A.T)) + Q
+    # Update
+    S = Cov_pred + Cov
+    K = np.dot(Cov_pred, np.linalg.inv(S))
+    R = X - X_pred
+    new_X = X_pred + np.dot(K, R)
+    new_Cov = np.dot(np.eye(5) - K, Cov_pred)
+    
+    for k in range(5):
+        X[k] = (X[k] - model.ds.mins[k])/(model.ds.maxs[k] - model.ds.mins[k])
+        X_[k] = (X_[k] - model.ds.mins[k])/(model.ds.maxs[k] - model.ds.mins[k])
+        Cov[k, k] = Cov[k, k]/(model.ds.maxs[k] - model.ds.mins[k])**2
+        Cov_[k, k] = Cov_[k, k]/(model.ds.maxs[k] - model.ds.mins[k])**2
+    
+    return new_X, new_Cov
+
+def compute_metric_wmse(y_true, y_pred):
     """
     Weighted MSE: grid cells with higher congestion have higher weights
     """
@@ -119,3 +198,12 @@ def compute_metric(y_true, y_pred):
     print("MSE:", np.mean((y_pred-y_true)**2))
     print("Weighted MSE:", metric, flush=True)
     return metric
+
+def compute_metric_tp(y_true, y_pred):
+    """
+    Compute the MSE of each variable
+    """
+    metric = [np.mean((y_true[...,i] - y_pred[...,i])**2) for i in range(5)]
+    print("MSE for each variable:", metric, flush=True)
+    return metric
+    

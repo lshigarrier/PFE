@@ -42,7 +42,7 @@ def plot_predict_tp(pred_tensor, true_tensor, t_init=0):
     
     fig, ax = plt.subplots()
 
-    m = Basemap(projection='cyl', llcrnrlat=42, urcrnrlat=52, llcrnrlon=-2, urcrnrlon=4, resolution='c', area_thresh=1000.)
+    m = Basemap(projection='cyl', llcrnrlat=40, urcrnrlat=60, llcrnrlon=-6, urcrnrlon=10, resolution='c', area_thresh=1000.)
     #m.bluemarble()
     m.drawcoastlines(linewidth=0.5)
     m.drawcountries(linewidth=0.5)
@@ -58,7 +58,7 @@ def plot_predict_tp(pred_tensor, true_tensor, t_init=0):
 
     x0, y0 = m(pred_tensor[t_init, :, 1]*180/np.pi, pred_tensor[t_init, :, 0]*180/np.pi)
     x1, y1 = m(true_tensor[t_init, :, 1]*180/np.pi, true_tensor[t_init, :, 0]*180/np.pi)
-
+    #print(pred_tensor[t_init, 11:20, :2]*180/np.pi, flush=True)
     #Plot the points on the map
 
     sp0 = ax.scatter(x0,y0,c='b',marker='+',s=0.8)

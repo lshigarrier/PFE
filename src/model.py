@@ -99,7 +99,7 @@ class CongestionModel:
         checkpoint = ModelCheckpoint(checkpoint_path, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
         callbacks_list = [checkpoint]
 
-        opt = Adam(lr=self.learning_rate, beta_1=self.beta_1, beta_2=self.beta_2, decay=self.learning_rate/self.nepochs)
+        opt = Adam(lr=self.learning_rate, beta_1=self.beta_1, beta_2=self.beta_2, decay=self.learning_rate/self.nepochs, clipnorm=1)
         self.full_model.compile(optimizer=opt, loss=self.get_loss())
 
         if self.nb_splits != 0:
@@ -188,7 +188,7 @@ class CongestionModel:
             
         self.reshape_ytensor(1)
     
-    def predict(self, input_tensor):
+    def predict(self, input_tensor, pred_dim):
         """
         Abstract method
         Return the predicted values

@@ -190,10 +190,6 @@ class ModelEncoderDecoder(CongestionModel):
         for t in range(pred_dim):
             out = self.decoder_model.predict([target_seq]+states_value)
             outputs = out[0]
-            if self.ds.apply_yolo:
-                target_seq = np.zeros((bs, 1, self.ds.nb_steps*self.ds.nb_steps*6))
-            else:
-                target_seq = np.zeros((bs, 1, self.ds.nb_steps*self.ds.nb_steps))
             target_seq[:, 0, :] = outputs[:, 0, :]
             states_values = out[1:]
             full_output[:, t, :] = outputs[:, 0, :]
