@@ -6,14 +6,14 @@ train: True
 model_type: 0
 
 # model
-name: seq2vec_3LSTM512_1Dense_2TransConv_500epochs
+name: seq2vec_3LSTM512_2Dense_500epochs
 # layers_list[0] -> RNN layers ("LSTM" or "GRU", (hidden state dimensions tuple))
 # layers_list[1] -> Dense layers ((output dimensions tuple), (activations tuple))
 # layers_list[2] -> Conv2DTranspose layers ((filters tuple), (kernels tuple), (padding tuple), (activations tuple))
 layers_list:
   - ["LSTM", [512, 512, 512]]
-  - [[576], ['elu']]
-  - [[64, 1], [3, 3], [0, 1], ['elu', null]]
+  - [[1024, 10000], ['elu', 'sigmoid']]
+  - [[]]
 directory: ../models/
 input_dim: 160
 output_dim: 160

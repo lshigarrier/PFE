@@ -65,14 +65,14 @@ class ModelTP(CongestionModel):
         self.nb_rnn_dec = len(self.layers_list[1])
         for i in range(self.nb_rnn_dec):
             layers["rnn_decoder"+str(i)] = LSTM(self.layers_list[1][i], return_sequences=True, return_state=True, kernel_regularizer=l2(self.l2_lambd), recurrent_regularizer=l2(self.l2_lambd))
-        self.nb_dense = len(self.layers_list[2][0])
         if self.k_mixture <= 0:
+            self.nb_dense = len(self.layers_list[2][0])
             for i in range(self.nb_dense):
                 layers["dense"+str(i)] = Dense(self.layers_list[2][0][i], activation=self.layers_list[2][1][i], kernel_regularizer=l2(self.l2_lambd))
         else:
             layers["dense_mixture"] = Dense(self.k_mixture, activation="softmax", kernel_regularizer=l2(self.l2_lambd))
-            layers["dense_mean"] = Dense(self.k_mixture*5, activation="elu", kernel_regularizer=l2(self.l2_lambd))
-            layers["dense_var"] = Dense(self.k_mixture*5, activation="elu", kernel_regularizer=l2(self.l2_lambd))
+            layers["dense_mean"] = Dense(self.k_mixture*(self.ds.state_dim), activation="elu", kernel_regularizer=l2(self.l2_lambd))
+            layers["dense_var"] = Dense(self.k_mixture*(self.ds.state_dim), activation="elu", kernel_regularizer=l2(self.l2_lambd))
         
         self.layers = layers
         
@@ -85,12 +85,18 @@ class ModelTP(CongestionModel):
         encoder_states = []
         for i in range(self.nb_rnn_enc):
             X, state_h, state_c = self.layers["rnn_encoder"+str(i)](X)
-            encoder_states.append(state_h)
-            encoder_states.append(state_c)
-        decoder_inputs = Input(shape=(self.ds.y_tensor.shape[1], self.ds.y_tensor.shape[2]), name='decoder_inputs') 
+            #encoder_states.append(state_h)
+            #encoder_states.append(state_c)
+            if i == self.nb_rnn_enc-1:
+                for i in range(self.nb_rnn_enc):
+                    encoder_states.append(state_h)
+                    encoder_states.append(state_c)
+        decoder_inputs = Input(shape=(self.ds.y_tensor.shape[1], self.ds.y_tensor.shape[2]), name='decoder_inputs')
+        #decoder_inputs = Input(shape=(self.ds.y_tensor.shape[1], 2), name='decoder_inputs')
         X = decoder_inputs
         for i in range(self.nb_rnn_dec):
-            X, _, _ = self.layers["rnn_decoder"+str(i)](X, initial_state=[encoder_states[2*(i-1)],encoder_states[2*(i-1)+1]])
+            #X, _, _ = self.layers["rnn_decoder"+str(i)](X, initial_state=[encoder_states[2*i],encoder_states[2*i+1]])
+            X, _, _ = self.layers["rnn_decoder"+str(i)](X, initial_state=[encoder_states[0],encoder_states[1]])
         if self.k_mixture <= 0:
             for i in range(self.nb_dense):
                 X = TimeDistributed(self.layers["dense"+str(i)])(X)
@@ -102,6 +108,40 @@ class ModelTP(CongestionModel):
             outputs = Concatenate(axis=-1)([phi, mu, sigma])
         self.full_model = Model([X_encoder, decoder_inputs], outputs)
         self.encoder_model = Model(X_encoder, encoder_states)
+    
+    '''def training_model(self):
+        """
+        Build the encoder model and the full model
+        """
+        X_encoder = Input(shape=(self.ds.x_tensor.shape[1], self.ds.x_tensor.shape[2]), name='X_encoder')
+        X = X_encoder
+        encoder_states = []
+        for i in range(self.nb_rnn_enc):
+            X, state_h, state_c = self.layers["rnn_encoder"+str(i)](X)
+            if i == self.nb_rnn_enc-1:
+                for i in range(self.nb_rnn_enc):
+                    encoder_states.append(state_h)
+                    encoder_states.append(state_c)
+        decoder_inputs = Input(shape=(self.ds.y_tensor.shape[1], 2), name='decoder_inputs')
+        decoder_states = []
+        for i in range(self.nb_rnn_dec):
+            decoder_states.append(encoder_states[0])
+            decoder_states.append(encoder_states[1])
+        for t in range(self.ds.y_tensor.shape[1]):
+            X = Lambda(lambda x : x[:,t,:])(decoder_inputs)
+            X = Reshape((1, 2))(X)
+            for i in range(self.nb_rnn_dec):
+                X, state_h, state_c = self.layers["rnn_decoder"+str(i)](X, initial_state=[decoder_states[2*i], decoder_states[2*i+1]])
+                decoder_states[2*i] = state_h
+                decoder_states[2*i+1] = state_c
+            for i in range(self.nb_dense):
+                X = TimeDistributed(self.layers["dense"+str(i)])(X)
+            if t==0:
+                outputs = X
+            else:
+                outputs = Concatenate(axis=1)([outputs, X])
+        self.full_model = Model([X_encoder, decoder_inputs], outputs)
+        self.encoder_model = Model(X_encoder, encoder_states)'''
         
     def inference_model(self):
         """
@@ -115,7 +155,7 @@ class ModelTP(CongestionModel):
         decoder_states_outputs = []
         X = decoder_inputs
         for i in range(self.nb_rnn_dec):
-            X, states_h, states_c = self.layers["rnn_decoder"+str(i)](X, initial_state=[decoder_states[2*(i-1)], decoder_states[2*(i-1)+1]])
+            X, states_h, states_c = self.layers["rnn_decoder"+str(i)](X, initial_state=[decoder_states[2*i], decoder_states[2*i+1]])
             decoder_states_outputs.append(states_h)
             decoder_states_outputs.append(states_c)
         if self.k_mixture <= 0:
@@ -156,16 +196,17 @@ class ModelTP(CongestionModel):
         """
         if self.k_mixture <= 0:
             
+            #full_output = self.full_model.predict([input_seq, np.concatenate((np.zeros((true_tensor.shape[0], 1, true_tensor.shape[2]+2)), np.concatenate((true_tensor[:,:-1,:], wind_tensor[:,:-1,:]), axis=-1)), axis = 1)])
             bs = input_seq.shape[0]
             states_value = self.encoder_model.predict(input_seq)
             full_output = np.zeros((bs, self.ds.y_tensor.shape[1], self.ds.y_tensor.shape[2] - 2))
             target_seq = np.zeros((bs, 1, self.ds.y_tensor.shape[2]))
             for t in range(self.ds.y_tensor.shape[1]):
                 out = self.decoder_model.predict([target_seq]+states_value)
-                outputs = out[0]          
-                target_seq[:, 0, :5] = true_tensor[:, t, :] if t < pred_dim else outputs[:, 0, :]
-                target_seq[:, 0, 5:] = wind_tensor[:, t, :]
-                states_values = out[1:]
+                outputs = out[0]
+                target_seq[:, 0, :self.ds.state_dim] = true_tensor[:, t, :] if t < pred_dim else outputs[:, 0, :]
+                target_seq[:, 0, self.ds.state_dim:] = wind_tensor[:, t, :]
+                states_value = out[1:]
                 full_output[:, t, :] = outputs[:, 0, :]
             return full_output
                 
@@ -178,7 +219,7 @@ class ModelTP(CongestionModel):
             full_outputs = {-1e9 : [np.zeros((1, self.ds.y_tensor.shape[1], self.ds.y_tensor.shape[2] - 2)),
                                     np.zeros((1, 1, self.ds.y_tensor.shape[2])),
                                     states_value,
-                                    np.eye(5)]}
+                                    np.eye(self.ds.state_dim)]}
             for t in range(self.ds.y_tensor.shape[1]):
                 temp_dict = {}
                 for (L, full_output) in full_outputs.items():
@@ -195,16 +236,16 @@ class ModelTP(CongestionModel):
 
                     if t >= pred_dim:
                         for i in range(self.k_mixture):
-                            Cov = np.diag(sigma[i*5:(i+1)*5]**2)
-                            new_X, new_Cov = AKF(self, traj[0, t-1, :], Cov_, mu[i*5:(i+1)*5], Cov)
-                            #new_X = mu[i*5:(i+1)*5]
+                            Cov = np.diag(sigma[i*self.ds.state_dim:(i+1)*self.ds.state_dim]**2)
+                            new_X, new_Cov = AKF(self, traj[0, t-1, :], Cov_, mu[i*self.ds.state_dim:(i+1)*self.ds.state_dim], Cov)
+                            #new_X = mu[i*self.ds.state_dim:(i+1)*self.ds.state_dim]
                             #new_Cov = Cov
                             new_traj = np.zeros((1, self.ds.y_tensor.shape[1], self.ds.y_tensor.shape[2] - 2))
                             new_traj[:, :t, :] = traj[:, :t, :]
                             new_traj[0, t, :] = new_X
                             new_target_seq = np.zeros((1, 1, self.ds.y_tensor.shape[2]))
-                            new_target_seq[0, 0, :5] = new_X
-                            new_target_seq[0, 0, 5:] = wind_tensor[0, t, :]
+                            new_target_seq[0, 0, :self.ds.state_dim] = new_X
+                            new_target_seq[0, 0, self.ds.state_dim:] = wind_tensor[0, t, :]
                             new_states_value = out[1:]
                             new_sigma = np.diagonal(new_Cov)
                             new_L = L + pi1*np.log(phi[i]) + pi2*(-np.sum(np.log(new_sigma)))
@@ -217,10 +258,10 @@ class ModelTP(CongestionModel):
 
                     else:
                         traj[:, t, :] = true_tensor[:, t, :]
-                        target_seq[:, 0, :5] = true_tensor[:, t, :]
-                        target_seq[:, 0, 5:] = wind_tensor[:, t, :]
-                        states_values = out[1:]
-                        Cov_ = np.diag(sigma[:5]**2)
+                        target_seq[:, 0, :self.ds.state_dim] = true_tensor[:, t, :]
+                        target_seq[:, 0, self.ds.state_dim:] = wind_tensor[:, t, :]
+                        states_value = out[1:]
+                        Cov_ = np.diag(sigma[:self.ds.state_dim]**2)
                         temp_dict[L] = [traj, target_seq, states_value, Cov_]
                 full_outputs = copy.deepcopy(temp_dict)
 
@@ -246,6 +287,10 @@ class ModelTP(CongestionModel):
         """
         print("Start inference:", self.name, "\nDataset size:", self.m_total, "\nInput dimension:", self.n_input, flush=True)
         
+        #with open(self.directory+"model_archi_"+self.index_file+".json", 'r') as json_file:
+        #    test_model = model_from_json(json_file.read())
+        #test_model.summary()
+        
         weights_path = self.directory+"model_weights_"+self.index_file+".h5"
         #weights_path = self.directory+"TP_ML_2LSTM512_2LSTM512_500epochs-14--97.83.hdf5"
         if use_val:
@@ -257,24 +302,34 @@ class ModelTP(CongestionModel):
         
         self.create_layers()
         self.create_model(inference=True)
+        
+        #self.full_model.summary()
+        
         self.full_model.load_weights(weights_path)
-            
+        
         if self.k_mixture <= 0:
             input_tensor = np.array([self.ds.x_tensor[self.ds.index_tensor[index[t]]] for t in range(len(index))])
-            true_tensor = np.array([self.ds.y_tensor[index[t],:,:5] for t in range(len(index))])
-            wind_tensor = np.array([self.ds.y_tensor[index[t],:,5:] for t in range(len(index))])
+            true_tensor = np.array([self.ds.y_tensor[index[t],:,:self.ds.state_dim] for t in range(len(index))])
+            wind_tensor = np.array([self.ds.y_tensor[index[t],:,self.ds.state_dim:] for t in range(len(index))])
         else:
             input_tensor = np.array([self.ds.x_tensor[self.ds.index_tensor[index[t]]] for t in range(1)])
-            true_tensor = np.array([self.ds.y_tensor[index[t],:,:5] for t in range(1)])
-            wind_tensor = np.array([self.ds.y_tensor[index[t],:,5:] for t in range(1)])
-        pred_tensor = self.predict(input_tensor, true_tensor, wind_tensor, pred_dim)
+            true_tensor = np.array([self.ds.y_tensor[index[t],:,:self.ds.state_dim] for t in range(1)])
+            wind_tensor = np.array([self.ds.y_tensor[index[t],:,self.ds.state_dim:] for t in range(1)])
+        #pred_tensor = self.predict(input_tensor, true_tensor, wind_tensor, pred_dim)
+        pred_tensor = self.full_model.predict([input_tensor, wind_tensor])
         
-        for k in range(5):
+        compute_metric_tp(true_tensor, pred_tensor)
+        
+        for k in range(self.ds.state_dim):
+            #print("k=", k, self.ds.mins[k], self.ds.maxs[k])
             pred_tensor[...,k] = pred_tensor[...,k]*(self.ds.maxs[k] - self.ds.mins[k]) + self.ds.mins[k]
             true_tensor[...,k] = true_tensor[...,k]*(self.ds.maxs[k] - self.ds.mins[k]) + self.ds.mins[k]
         
         compute_metric_tp(true_tensor, pred_tensor)
         
         fig, ax, slider = self.plot_predict(pred_tensor, true_tensor)
+        #fig, ax, slider = plot_predict_profile(pred_tensor, true_tensor)
+        #fig, ax = plot_all_predict_profile(self, index, pred_tensor, true_tensor)
+        #slider = 0
 
         return fig, ax, slider

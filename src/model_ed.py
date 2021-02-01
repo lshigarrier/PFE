@@ -191,7 +191,7 @@ class ModelEncoderDecoder(CongestionModel):
             out = self.decoder_model.predict([target_seq]+states_value)
             outputs = out[0]
             target_seq[:, 0, :] = outputs[:, 0, :]
-            states_values = out[1:]
+            states_value = out[1:]
             full_output[:, t, :] = outputs[:, 0, :]
         return full_output
     

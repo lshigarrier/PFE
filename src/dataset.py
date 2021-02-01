@@ -48,9 +48,9 @@ class Dataset:
         tensor[:,1:-1,1:-1] = self.y_tensor
         W = np.array([[[1.0, 2.0, 1.0],
                         [2.0, 4.0, 2.0],
-                        [1.0, 2.0, 1.0]] for t in range(nbTime)])
-        for x in range(nb_steps):
-            for y in range(nb_steps):
+                        [1.0, 2.0, 1.0]] for t in range(self.nb_times)])
+        for x in range(self.nb_steps):
+            for y in range(self.nb_steps):
                 self.y_tensor[:, x, y] = np.average(tensor[:,x:x+3,y:y+3], axis=(1,2), weights=W)
         self.max_cong = np.max(self.y_tensor)
         self.y_tensor /= self.max_cong
@@ -296,7 +296,7 @@ class Dataset:
              
     def plot_clusters(self, t_init=0, plot_grid=False):
         """
-        For each timstamp, plot the points clustered by colors and the rectangles associated with each cluster
+        For each timestamp, plot the points clustered by colors and the rectangles associated with each cluster
         """
         X = self.trajs[t_init]
         db = self.dbs[t_init]

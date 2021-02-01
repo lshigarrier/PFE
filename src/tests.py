@@ -96,12 +96,12 @@ def main():
             fig, ax = test_nb_ac(ds)
     else:
         if test == "tp_weather":
-            ds = DatasetTraj(trajs_directory=param["trajs_directory"], plns_directory=param["plns_directory"], weather_directory=param["weather_directory"], load_data=False)
+            ds = DatasetTraj(trajs_directory=param["trajs_directory"], plns_directory=param["plns_directory"], weather_directory=param["weather_directory"], input_type=param["input_type"], load_data=False)
             ds.grib2npy(param["grib_directory"])
         elif test == "tp_loss":
-            plot_loss("../models/", 5)
+            plot_loss("../models/", 20)
         else:
-            ds = DatasetTraj(trajs_directory=param["trajs_directory"], plns_directory=param["plns_directory"], weather_directory=param["weather_directory"])
+            ds = DatasetTraj(trajs_directory=param["trajs_directory"], plns_directory=param["plns_directory"], weather_directory=param["weather_directory"], input_type=param["input_type"])
             if test == "tp_dataset":
                 print(ds.x_tensor.shape)
                 print(ds.y_tensor.shape, flush=True)
@@ -112,7 +112,8 @@ def main():
             elif test == "tp_traj":
                 ds.plot_traj()
             elif test == "tp_profile":
-                ds.plot_profile()
+                #ds.plot_profile()
+                ds.plot_all_profiles()
     plt.show()
         
 if __name__ == '__main__':

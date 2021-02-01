@@ -4,6 +4,11 @@ plns_directory: ../data/plns/
 weather_directory: ../data/weather/
 grib_directory: ../data/weather/grib/
 
+# input_type
+# 1 -> [latitude, longitude, altitude, northerly speed, easterly speed, northerly wind, easterly wind]
+# 2 -> [latitude, longitude, altitude, northerly wind, easterly wind]
+input_type: 2
+
 levels:
   - 1000
   - 2000

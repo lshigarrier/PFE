@@ -17,6 +17,7 @@ def plot_predict_profile(pred_tensor, true_tensor, t_init=0):
     nb_times = pred_tensor.shape[0]
 
     fig, ax = plt.subplots()
+    plt.subplots_adjust(bottom=0.2)
 
     sp0 = ax.scatter(np.arange(0, 10*len(pred_tensor[t_init, :, 2]), 10),pred_tensor[t_init, :, 2], c='b',marker='+',s=1.0)
     sp1 = ax.scatter(np.arange(0, 10*len(true_tensor[t_init, :, 2]), 10),true_tensor[t_init, :, 2], c='r',marker='+',s=1.0)
@@ -24,15 +25,33 @@ def plot_predict_profile(pred_tensor, true_tensor, t_init=0):
     axe_slider = plt.axes([0.1, 0.01, 0.8, 0.05])
     slider = Slider(axe_slider, 'Example', 0, nb_times-1, valinit=t_init, valstep=1)
 
-    def update_tp(val):
+    def update_profile(val):
         time = int(slider.val)
         sp0.set_offsets(np.c_[np.arange(0, 10*len(pred_tensor[time, :, 2]), 10),pred_tensor[time, :, 2]])
         sp1.set_offsets(np.c_[np.arange(0, 10*len(true_tensor[time, :, 2]), 10),true_tensor[time, :, 2]])
         plt.draw()
 
-    slider.on_changed(update_tp)
+    slider.on_changed(update_profile)
 
     return fig, ax, slider
+
+def plot_all_predict_profile(model, index, pred_tensor, true_tensor):
+    """
+    Plot all the true and predicted vertical profiles from index for one flight plan
+    """
+    nb_times = pred_tensor.shape[0]
+    tensor = model.ds.index_tensor
+
+    fig, ax = plt.subplots()
+    
+    print("FPLN", tensor[index[0]])
+    
+    for t in range(nb_times):
+        if tensor[index[0]] == tensor[index[t]]:
+            ax.plot(np.arange(0, 10*len(pred_tensor[t, :, 2]), 10),pred_tensor[t, :, 2], c='b',linewidth=0.5)
+            ax.plot(np.arange(0, 10*len(true_tensor[t, :, 2]), 10),true_tensor[t, :, 2], c='r',linewidth=0.5)
+
+    return fig, ax
 
 def plot_predict_tp(pred_tensor, true_tensor, t_init=0):
     """
@@ -42,7 +61,7 @@ def plot_predict_tp(pred_tensor, true_tensor, t_init=0):
     
     fig, ax = plt.subplots()
 
-    m = Basemap(projection='cyl', llcrnrlat=40, urcrnrlat=60, llcrnrlon=-6, urcrnrlon=10, resolution='c', area_thresh=1000.)
+    m = Basemap(projection='cyl', llcrnrlat=42, urcrnrlat=51, llcrnrlon=-7, urcrnrlon=10, resolution='c', area_thresh=1000.)
     #m.bluemarble()
     m.drawcoastlines(linewidth=0.5)
     m.drawcountries(linewidth=0.5)
@@ -58,11 +77,29 @@ def plot_predict_tp(pred_tensor, true_tensor, t_init=0):
 
     x0, y0 = m(pred_tensor[t_init, :, 1]*180/np.pi, pred_tensor[t_init, :, 0]*180/np.pi)
     x1, y1 = m(true_tensor[t_init, :, 1]*180/np.pi, true_tensor[t_init, :, 0]*180/np.pi)
-    #print(pred_tensor[t_init, 11:20, :2]*180/np.pi, flush=True)
     #Plot the points on the map
-
-    sp0 = ax.scatter(x0,y0,c='b',marker='+',s=0.8)
-    sp1 = ax.scatter(x1,y1,c='r',marker='+',s=0.8)
+    
+    end0 = len(y0)
+    for t in range(len(y0)-1):
+        if abs(y0[t]-y0[t+1]) > 0.1 and t > 250:
+            end0 = t+1
+            break
+    end1 = len(y1)
+    for t in range(len(y1)):
+        if y1[t] == 0:
+            end1 = t
+            break
+    
+    prop = 0.5
+    #sp0 = ax.scatter(x0,y0,c='b',marker='+',s=0.8)
+    #sp1 = ax.scatter(x1,y1,c='r',marker='+',s=0.8)
+    lim = int(end1*prop)
+    print("Length", end1, flush=True)
+    #p0, = ax.plot(x0[:lim],y0[:lim],c='g',linewidth=0.8)
+    #p05, = ax.plot(x0[lim-1:end0],y0[lim-1:end0],c='b',linewidth=0.8)
+    p0, = ax.plot(x0[:end0],y0[:end0],c='g',linewidth=0.8)
+    p1, = ax.plot(x1[:end1],y1[:end1],c='r',linewidth=0.8)
+    #ax.legend((p0, p05, p1), ('Prediction using true input', 'Prediction using recursive inference', 'True trajectory'), loc='lower right')
     
     axe_slider = plt.axes([0.1, 0.01, 0.8, 0.05])
     slider = Slider(axe_slider, 'Example', 0, nb_times-1, valinit=t_init, valstep=1)
@@ -71,8 +108,26 @@ def plot_predict_tp(pred_tensor, true_tensor, t_init=0):
         time = int(slider.val)
         x0, y0 = m(pred_tensor[time, :, 1]*180/np.pi, pred_tensor[time, :, 0]*180/np.pi)
         x1, y1 = m(true_tensor[time, :, 1]*180/np.pi, true_tensor[time, :, 0]*180/np.pi)
-        sp0.set_offsets(np.c_[x0,y0])
-        sp1.set_offsets(np.c_[x1,y1])
+        end0 = len(y0)
+        for t in range(len(y0)-1):
+            if abs(y0[t]-y0[t+1]) > 0.1 and t > 250:
+                end0 = t+1
+                break
+        end1 = len(y1)
+        for t in range(len(y1)):
+            if y1[t] == 0:
+                end1 = t
+                break
+        #sp0.set_offsets(np.c_[x0,y0])
+        #sp1.set_offsets(np.c_[x1,y1])
+        #p0.set_xdata(x0[:lim])
+        #p0.set_ydata(y0[:lim])
+        #p05.set_xdata(x0[lim-1:end0])
+        #p05.set_ydata(y0[lim-1:end0])
+        p0.set_xdata(x0[:end0])
+        p0.set_ydata(y0[:end0])
+        p1.set_xdata(x1[:end1])
+        p1.set_ydata(y1[:end1])
         plt.draw()
 
     slider.on_changed(update_tp)

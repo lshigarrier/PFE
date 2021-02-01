@@ -6,7 +6,7 @@ train: True
 model_type: 1
 
 # model
-name: encoder_decoder_1Conv_2LSTM512_2LSTM512_1Dense_2TransConv_500epochs
+name: encoder_decoder_1Conv_2LSTM512_2LSTM512_2Dense_500epochs
 # layers_list[0] -> Conv1D layers ((filters tuple), (kernels tuple), (activations tuple))
 # layers_list[1] -> RNN encoder ("LSTM" or "GRU", (hidden state dimensions tuple))
 # layers_list[2] -> RNN decoder ("LSTM" or "GRU", (hidden state dimensions tuple))
@@ -16,8 +16,8 @@ layers_list:
   - [[256], [3], ['elu']]
   - [["LSTM"], [512, 512]]
   - [["LSTM"], [512, 512]]
-  - [[576], ['elu']]
-  - [[32, 1], [3, 3], [0, 1], ['elu', null]]
+  - [[1024, 10000], ['elu', 'sigmoid']]
+  - [[]]
 directory: ../models/
 input_dim: 160
 output_dim: 160

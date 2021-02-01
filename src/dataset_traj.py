@@ -12,10 +12,16 @@ class DatasetTraj(Dataset):
                 trajs_directory="../data/trajs/",
                 plns_directory="../data/plns/",
                 weather_directory="../data/weather/",
+                input_type=1,
                 load_data = True):
         self.trajs = trajs_directory
         self.plns = plns_directory
         self.weather = weather_directory
+        self.input_type = input_type
+        if self.input_type == 1:
+            self.state_dim = 5
+        elif self.input_type == 2:
+            self.state_dim = 3
         if load_data:
             self.read()
         
@@ -33,6 +39,7 @@ class DatasetTraj(Dataset):
         traj_list = []
         pln_list = []
         max_len = 0
+        #vtas = []
         for f in filenames:
             trajectory = []
             with open(self.trajs+f) as file:
@@ -45,10 +52,14 @@ class DatasetTraj(Dataset):
                 line_nb = 2
                 while line != "":
                     if time == 0:
-                        state = [float(point[2]), float(point[3]), float(point[4]), float(point[6]), float(point[8])]
-                        hdg = state[3]
-                        state[3] = np.cos(hdg)*state[4]
-                        state[4] = np.sin(hdg)*state[4]
+                        if self.input_type == 1:
+                            state = [float(point[2]), float(point[3]), float(point[4]), float(point[6]), float(point[8])]
+                            hdg = state[3]
+                            state[3] = np.cos(hdg)*state[4]
+                            state[4] = np.sin(hdg)*state[4]
+                        elif self.input_type == 2:
+                            state = [float(point[2]), float(point[3]), float(point[4])]
+                        #vtas.append(state[4])
                         uwind, vwind = self.match_weather(f, state)
                         state.append(uwind)
                         state.append(vwind)
@@ -62,14 +73,20 @@ class DatasetTraj(Dataset):
                             print(point)
                             print(line_nb, flush=True)
                         else:
-                            state = [self.interpolate(time, point[1], previous[0], point[2]),
+                            if self.input_type == 1:    
+                                state = [self.interpolate(time, point[1], previous[0], point[2]),
                                      self.interpolate(time, point[1], previous[1], point[3]),
                                      self.interpolate(time, point[1], previous[2], point[4]),
                                      self.interpolate(time, point[1], previous[3], point[6]),
                                      self.interpolate(time, point[1], previous[4], point[8])]
-                            hdg = state[3]
-                            state[3] = np.cos(hdg)*state[4]
-                            state[4] = np.sin(hdg)*state[4]
+                                hdg = state[3]
+                                state[3] = np.cos(hdg)*state[4]
+                                state[4] = np.sin(hdg)*state[4]
+                            elif self.input_type == 2:
+                                state = [self.interpolate(time, point[1], previous[0], point[2]),
+                                     self.interpolate(time, point[1], previous[1], point[3]),
+                                     self.interpolate(time, point[1], previous[2], point[4])]
+                            #vtas.append(state[4])
                             uwind, vwind = self.match_weather(f, state)
                             state.append(uwind)
                             state.append(vwind)
@@ -85,14 +102,23 @@ class DatasetTraj(Dataset):
             traj_list.append(trajectory)
             max_len = max(max_len, len(trajectory))
         self.index_tensor = np.array(pln_list)    
-        self.y_tensor = np.zeros((len(traj_list), max_len, 7))
+        self.y_tensor = np.zeros((len(traj_list), max_len, self.state_dim+2))
         for i in range(len(traj_list)):
             self.y_tensor[i, :len(traj_list[i]), :] = np.array(traj_list[i])
         self.maxs = []
         self.mins = []
-        for k in range(7):
+        #vtas = np.array(vtas)
+        for k in range(self.state_dim+2):
             self.maxs.append(np.max(self.y_tensor[...,k]))
             self.mins.append(np.min(self.y_tensor[...,k]))
+            '''if k == 4:
+                print(np.max(vtas))
+                print(np.min(vtas))
+                print(self.maxs[k])
+                print(self.mins[k])
+                print("------------", flush=True)
+                fig, ax = plt.subplots()
+                ax.hist(vtas, bins=50)'''
             self.y_tensor[...,k] = (self.y_tensor[...,k] - self.mins[k])/(self.maxs[k] - self.mins[k])
     
     def load_weather(self):
@@ -106,7 +132,7 @@ class DatasetTraj(Dataset):
                 self.weather_dict[f[7:19]] = np.load(self.weather+f)
             else:
                 self.weather_dict[f[:4]] = np.load(self.weather+f)
-        
+    
     def load_pln(self):
         """
         Load all the flight plans in an array self.x_tensor
@@ -128,7 +154,7 @@ class DatasetTraj(Dataset):
                 max_len = max(max_len, len(plns))
         self.x_tensor = np.zeros((len(temp_list), max_len, 2))
         for i in range(len(temp_list)):
-            self.x_tensor[i, -len(temp_list[i]):, :] = np.array(temp_list[i])
+            self.x_tensor[i, -len(temp_list[i]):, :] = np.array(temp_list[i][::-1])
         self.maxs_pln = []
         self.mins_pln = []
         for k in range(2):
@@ -152,6 +178,9 @@ class DatasetTraj(Dataset):
         uwind = self.weather_dict[key][time, ilat, ilon, ilvl, 0]
         vwind = self.weather_dict[key][time, ilat, ilon, ilvl, 1]
         return uwind, vwind
+    
+    def match_full_weather(self, f):
+        pass
     
     def interpolate(self, x0, x1, y0, y1):
         """
@@ -196,10 +225,10 @@ class DatasetTraj(Dataset):
         Parse the grib files from the directory into npy files
         For each grib file, wind data are saved over France for 28 isobaric levels and 9 forecast times
         Message index:
-            U component: 505-588
-            V component: 757-840
-        Lons: -6° / 10°
-        Lats: 41° / 52°
+            U component: 505-756
+            V component: 757-1008
+        Lons: -6° / 10° -> 33 steps
+        Lats: 41° / 52° -> 23 steps
         """
         resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
         (_, _, filenames) = next(walk(directory))
@@ -208,7 +237,7 @@ class DatasetTraj(Dataset):
             if f.lower().endswith('.grib2'):
                 grbs = pygrib.open(directory+f)
                 print("Process file:", f, flush=True)
-                tensor = np.zeros((9, 23, 33, 28, 2))
+                tensor = np.zeros((9, 23, 33, 28, 2)) # (time, lat, lon, level, component)
                 for time in range(9):
                     tensor[time, ..., 0] = self.parse_grib(grbs, 504+28*time, grib_info)
                     grib_info = False
@@ -225,6 +254,9 @@ class DatasetTraj(Dataset):
         tensor = np.zeros((23, 33, 28))
         for lvl in range(len(grb_list)):
             data, lats, lons = grb_list[lvl].data(lat1=41,lat2=52)
+            # [-6°  ... -0.5° ]+[0° ... 10.5°[
+            # [354° ... 359.5°]+[0° ... 10.5°[
+            # [708  ... 719   ]+[0  ... 21   [
             tensor[..., lvl] = np.concatenate((data[:,708:], data[:,:21]), axis=1)
         if grib_info:
             lats = np.arange(41, 52.1, 0.5)
@@ -350,6 +382,24 @@ class DatasetTraj(Dataset):
         slider.on_changed(update_tp)
 
         return fig, ax, slider
+    
+    def plot_all_profiles(self):
+        """
+        Plot 1/20th of the profiles
+        """
+        tensor = self.y_tensor.copy()
+        nb_times = tensor.shape[0]
+
+        for k in range(5):
+            tensor[...,k] = tensor[...,k]*(self.maxs[k] - self.mins[k]) + self.mins[k]
+        
+        fig, ax = plt.subplots()
+        
+        for t in range(0, nb_times, 20):
+            #ax.scatter(np.arange(0, 10*len(tensor[t, :, 2]), 10),tensor[t, :, 2], c='b',marker='+',s=1.0)
+            ax.plot(np.arange(0, 10*len(tensor[t, :, 2]), 10),tensor[t, :, 2], color='blue', linewidth=0.5)
+            
+        return fig, ax
     
     def plot_wind(self, date, time, level):
         """

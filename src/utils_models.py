@@ -1,9 +1,9 @@
 import numpy as np
 import keras.backend as K
 import tensorflow as tf
-from keras.layers import Input, Conv1D, LSTM, GRU, TimeDistributed, Dense, Reshape, Concatenate, Conv2DTranspose, BatchNormalization
+from keras.layers import Input, Conv1D, LSTM, GRU, TimeDistributed, Dense, Reshape, Concatenate, Conv2DTranspose, BatchNormalization, Lambda
 from keras.regularizers import l2 
-from keras.models import Model
+from keras.models import Model, load_model, model_from_json
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 from sklearn.model_selection import TimeSeriesSplit, KFold
@@ -29,7 +29,8 @@ def batch_generator_tp(model, is_training):
             x_encoder_batch = np.array([x[model.ds.index_tensor[index_map[index[j]]]] for j in range(i*bs,i*bs+current_bs)])
             x_decoder_batch = np.array([y[index_map[index[j]], :-1, :] for j in range(i*bs,i*bs+current_bs)])
             x_decoder_batch = np.concatenate((np.zeros((x_decoder_batch.shape[0], 1, x_decoder_batch.shape[2])), x_decoder_batch), axis=1)
-            y_batch = np.array([y[index_map[index[j]], :, :5] for j in range(i*bs,i*bs+current_bs)])
+            #x_decoder_batch = np.array([y[index_map[index[j]], :, model.ds.state_dim:] for j in range(i*bs,i*bs+current_bs)])
+            y_batch = np.array([y[index_map[index[j]], :, :model.ds.state_dim] for j in range(i*bs,i*bs+current_bs)])
             yield [x_encoder_batch, x_decoder_batch], y_batch
 
 def batch_generator_seq2vec(model, is_training):
@@ -203,7 +204,9 @@ def compute_metric_tp(y_true, y_pred):
     """
     Compute the MSE of each variable
     """
-    metric = [np.mean((y_true[...,i] - y_pred[...,i])**2) for i in range(5)]
+    metric = [np.mean(((y_true[...,i] - y_pred[...,i])**2).flatten()) for i in range(3)]
+    print("MSE:", np.mean(((y_pred-y_true)**2)).flatten())
     print("MSE for each variable:", metric, flush=True)
+    print("RMSE for each variable:", np.sqrt(metric), flush=True)
     return metric
     

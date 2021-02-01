@@ -63,7 +63,7 @@ def main():
                             train_val_split = hparam["train_val_split"],
                             index_file = hparam["index_file"])
     elif hparam["model_type"] == 2:
-        ds = DatasetTraj(trajs_directory=param["trajs_directory"], plns_directory=param["plns_directory"], weather_directory=param["weather_directory"])
+        ds = DatasetTraj(trajs_directory=param["trajs_directory"], plns_directory=param["plns_directory"], weather_directory=param["weather_directory"], input_type=param["input_type"])
         model = ModelTP(dataset=ds,
                             name=hparam["name"],
                             layers_list=hparam["layers_list"],

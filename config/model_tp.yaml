@@ -1,21 +1,21 @@
 # training or prediction
-train: False
+train: True
 # model_type:
 # 2 -> TP
 model_type: 2
 
 # model
-name: TP_2LSTM512_2LSTM512_3Dense256-128-5_500epochs
+name: TP_2LSTM256_2LSTM256_3Dense128-64-3_200epochs
 # layers_list[0] -> RNN encoder ((hidden state dimensions tuple))
 # layers_list[1] -> RNN decoder ((hidden state dimensions tuple))
 # layers_list[2] -> Dense layers ((output dimensions tuple), (activations tuple))
 layers_list:
-  - [512, 512]
-  - [512, 512]
-  - [[256, 128, 5], ['elu', 'elu', 'linear']]
+  - [256, 256]
+  - [256, 256]
+  - [[128, 64, 3], ['elu', 'elu', 'linear']]
 directory: ../models/
 batch_size: 64
-epochs: 500
+epochs: 200
 learning_rate: 1.0e-4
 beta_1: 0.9
 beta_2: 0.999
@@ -24,7 +24,8 @@ beta_2: 0.999
 # weighted_mse
 # yolo
 # tp
-loss: ml
+# ml
+loss: mean_squared_error
 l2_lambd: 0
 nb_splits: 0
 train_val_split: True
@@ -33,4 +34,4 @@ k_mixture: 0
 
 # inference
 use_val: True
-pred_dim: 10
+pred_dim: 164
